@@ -86,10 +86,24 @@ end)
     playbtn:addEventListener("tap", onPlayTap)
 
     -------------------------------------------------
-    -- QUIT BUTTON (exit the game)
+    -- QUIT BUTTON (exit the game with confirmation)
     -------------------------------------------------
-    local function onQuitTap()
-        native.requestExit()
+    local function onQuitConfirmed(event)
+        if event.action == "clicked" then
+            local i = event.index
+            if i == 1 then
+                native.requestExit()
+            end
+        end
+    end
+
+    local function onQuitTap(event)
+        native.showAlert(
+            "Quit Game",
+            "Are you sure you want to exit?",
+            {"Yes", "No"},
+            onQuitConfirmed
+        )
         return true
     end
 

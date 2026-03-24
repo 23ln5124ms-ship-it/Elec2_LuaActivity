@@ -12,6 +12,12 @@ _G.isMuted = _G.isMuted or false
 function scene:create(event)
     local sceneGroup = self.view
 
+    -- Background image for settings screen
+    local bg = display.newImageRect(sceneGroup, "images/bg.jpg", display.contentWidth, display.contentHeight)
+    bg.x = display.contentCenterX
+    bg.y = display.contentCenterY
+    bg.alpha = 0.8
+
     -- Settings Panel (center content)
     local panel = display.newRoundedRect(
         sceneGroup,
