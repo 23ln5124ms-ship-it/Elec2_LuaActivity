@@ -1,6 +1,7 @@
 local composer = require("composer")
 local scene = composer.newScene()
 local physics = require("physics")
+local skins = require("scene.skins")
 
 -- VARIABLES
 local balloon
@@ -30,6 +31,9 @@ local timerText
 local timerStarted = false
 local gameSceneGroup
 local useTimer = false
+local currentSkinKey = nil
+
+local pushBalloon
 
 local function createTimerDisplay(sceneGroup)
 
@@ -53,6 +57,29 @@ local function createTimerDisplay(sceneGroup)
     })
     timerText:setFillColor(0.2, 1, 0.8)
 end
+
+local function createBalloon()
+    if balloon then
+        balloon:removeSelf()
+        balloon = nil
+    end
+
+    balloon = display.newImageRect(gameSceneGroup, "images/" .. skins.getSelected(), 150, 150)
+    balloon.x = display.contentCenterX
+    balloon.y = display.contentCenterY
+    physics.addBody(balloon, "kinematic", { radius = 70, bounce = 0 })
+
+    -- safe callback using forward declaration
+    balloon:addEventListener("tap", function()
+        if pushBalloon then
+            pushBalloon()
+        end
+        return true
+    end)
+
+    currentSkinKey = skins.getSelectedKey()
+end
+
 local function startGameTimer(sceneGroup)
 
     if not useTimer then return end
@@ -89,8 +116,8 @@ end
 -------------------------------------------------
 -- PUSH BALLOON
 -------------------------------------------------
-local function pushBalloon()
-    if gameOver or not balloon then return end
+pushBalloon = function()
+    if gameOver or not balloon then return true end
 
     if not gameStarted then
         gameStarted = true
@@ -133,15 +160,9 @@ local function resetGame()
 
     gameOverimg.isVisible = false
     resetBtn.isVisible = false
-    balloon.isVisible = true
 
-    balloon.x = display.contentCenterX
-    balloon.y = display.contentCenterY
-    balloon:setLinearVelocity(0,0)
-    balloon.angularVelocity = 0
-
-    physics.removeBody(balloon)
-    physics.addBody(balloon, "kinematic", { radius=70, bounce=0 })
+    -- Re-create balloon with selected skin and reset physics
+    createBalloon()
 
     finalScoreText.isVisible = false
     finalHighScoreText.isVisible = false
@@ -153,6 +174,10 @@ local function resetGame()
             timerText.text = string.format("%d:00", selectedTime / 60)
         end
     end
+
+    -- Re-enable the position checking loop
+    Runtime:removeEventListener("enterFrame", checkBalloonPosition)
+    Runtime:addEventListener("enterFrame", checkBalloonPosition)
     
     transition.to(scoreGroup, {time=300, alpha=1})
 end
@@ -216,11 +241,22 @@ local function checkBalloonPosition()
         gameOver = true
     end
 
-    if balloonTop > display.contentHeight then
+    -- Out-of-bounds checks (immediately detect when completely off-screen)
+    if balloonBottom > display.contentHeight or
+       balloonTop < 0 or
+       balloonRight < 0 or
+       balloonLeft > display.contentWidth then
         gameOver = true
     end
 
     if gameOver then
+
+        -- ensure game really stops
+        if gameTimer then
+            timer.cancel(gameTimer)
+            gameTimer = nil
+        end
+        Runtime:removeEventListener("enterFrame", checkBalloonPosition)
 
         -- Update high score
 if tapCount > highScore then
@@ -297,11 +333,7 @@ function scene:create(event)
     physics.addBody(platform, "static")
 
     -- Balloon
-    balloon = display.newImageRect(sceneGroup, "images/tnt.png", 150, 150)
-    balloon.x = display.contentCenterX
-    balloon.y = display.contentCenterY
-    physics.addBody(balloon, "kinematic", { radius=70, bounce=0 })
-    
+    createBalloon()
 
     -------------------------------------------------
 -- SCORE UI GROUP
@@ -393,21 +425,19 @@ finalHighScoreText.isVisible = false
 
     backBtn:addEventListener("tap", function()
 
-    physics.stop()   -- resume physics if needed
-    
-    composer.removeScene("scene.menu") 
-    composer.gotoScene("scene.menu", {
-        effect = "fade",
-        time = 300
-    })
-    return true
-end)
+        physics.stop()   -- pause physics while leaving game
+        -- Avoid removing scenes and causing reload via dashboard.
+        composer.gotoScene("scene.menu", {
+            effect = "fade",
+            time = 300
+        })
+        return true
+    end)
 
 
     -------------------------------------------------
     -- LISTENERS
     -------------------------------------------------
-    balloon:addEventListener("tap", pushBalloon)
     resetBtn:addEventListener("tap", resetGame)
     Runtime:addEventListener("enterFrame", checkBalloonPosition)
 
@@ -417,6 +447,7 @@ end)
             effect = "fade",
             time = 300
         })
+        return true
     end)
 end
 
@@ -425,18 +456,28 @@ end
 -------------------------------------------------
 function scene:show(event)
     if event.phase == "did" then
-        -- Handle selected time from set2 scene
-        if event.params and event.params.selectedTime then
+        -- Prefer runtime variable from settings overlay
+        local savedTime = composer.getVariable("selectedTime")
+        if savedTime then
+            useTimer = true
+            selectedTime = savedTime
+            timeLeft = selectedTime
+        elseif event.params and event.params.selectedTime then
             useTimer = true
             selectedTime = event.params.selectedTime
             timeLeft = selectedTime
         else
             useTimer = false
         end
-        
+
         -- Ensure timer display is created (only if useTimer is true)
         if not timerText and useTimer and scoreGroup then
             createTimerDisplay(gameSceneGroup)
+        end
+
+        -- Update balloon skin in case it was changed in settings/set2
+        if skins.getSelectedKey() ~= currentSkinKey then
+            createBalloon()
         end
     end
 end
@@ -445,6 +486,9 @@ end
 -- PAUSE WHEN OVERLAY OPENS
 -------------------------------------------------
 function scene:pause(event)
+    if balloon then
+        balloon:removeEventListener("tap", pushBalloon)
+    end
     physics.pause()
 end
 
@@ -453,6 +497,10 @@ end
 -------------------------------------------------
 function scene:resume(event)
     physics.start()
+
+    if balloon then
+        balloon:addEventListener("tap", pushBalloon)
+    end
 end
 
 scene:addEventListener("create", scene)

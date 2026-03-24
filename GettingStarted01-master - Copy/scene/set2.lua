@@ -1,4 +1,5 @@
 local composer = require("composer")
+local skins = require("scene.skins")
 local scene = composer.newScene()
 
 -------------------------------------------------
@@ -35,21 +36,187 @@ function scene:create(event)
     bg:setFillColor(0)
 
     local title = display.newText(sceneGroup,
+        "CHOOSE SKIN",
+        display.contentCenterX,
+        150,
+        native.systemFontBold,
+        46)
+    title:setFillColor(1,1,0.5)
+
+    -- Skin dropdown UI for clean appearance and user-friendly control
+    local dropdownGroup = display.newGroup()
+    sceneGroup:insert(dropdownGroup)
+
+    local dropdownBox = display.newRoundedRect(dropdownGroup,
+        display.contentCenterX,
+        220,
+        display.contentWidth - 80,
+        70,
+        18
+    )
+    dropdownBox:setFillColor(0.1, 0.5, 0.9, 0.95)
+    dropdownBox.strokeWidth = 2
+    dropdownBox:setStrokeColor(1, 1, 1)
+
+    local dropdownLabel = display.newText({
+        parent = dropdownGroup,
+        text = "Skin: " .. skins.getSelectedKey(),
+        x = display.contentCenterX - 50,
+        y = 220,
+        font = native.systemFontBold,
+        fontSize = 24
+    })
+
+    local dropdownArrow = display.newText({
+        parent = dropdownGroup,
+        text = "▼",
+        x = display.contentCenterX + 150,
+        y = 220,
+        font = native.systemFontBold,
+        fontSize = 22
+    })
+
+    -- Skin preview icon below dropdown
+    local skinPreview = display.newImageRect(sceneGroup,
+        "images/" .. skins.getSelected(),
+        50,
+        50
+    )
+    skinPreview.x = display.contentCenterX
+    skinPreview.y = 288
+
+    local optionsGroup = display.newGroup()
+    sceneGroup:insert(optionsGroup)
+    optionsGroup.isVisible = false
+
+    -- Semi-transparent overlay for dropdown menu
+    local dropdownOverlay = display.newRect(sceneGroup,
+        display.contentCenterX,
+        display.contentCenterY,
+        display.contentWidth,
+        display.contentHeight
+    )
+    dropdownOverlay:setFillColor(0, 0, 0, 0.3)
+    dropdownOverlay.isVisible = false
+
+    local function hideOptions()
+        optionsGroup.isVisible = false
+        dropdownOverlay.isVisible = false
+        dropdownArrow.text = "▼"
+    end
+
+    dropdownOverlay:addEventListener("tap", hideOptions)
+
+    local function showOptions()
+        optionsGroup:removeSelf()
+        optionsGroup = display.newGroup()
+        sceneGroup:insert(optionsGroup)
+
+        dropdownOverlay.isVisible = true
+        dropdownArrow.text = "▲"
+
+        local opts = skins.getOptions()
+        local optionStartY = 330
+        local optionHeight = 50
+        local optionSpacing = 10
+
+        for i = 1, #opts do
+            local option = opts[i]
+            local optionY = optionStartY + (i - 1) * (optionHeight + optionSpacing)
+            local optionBG = display.newRoundedRect(optionsGroup,
+                display.contentCenterX,
+                optionY,
+                display.contentWidth - 80,
+                optionHeight,
+                12
+            )
+            optionBG:setFillColor(0.08, 0.08, 0.12, 0.95)
+            optionBG.strokeWidth = 2
+            optionBG:setStrokeColor(0.7, 0.7, 1)
+
+            local optionText = display.newText({
+                parent = optionsGroup,
+                text = option.name,
+                x = display.contentCenterX - 60,
+                y = optionY,
+                font = native.systemFont,
+                fontSize = 20
+            })
+
+            local optionIcon = display.newImageRect(optionsGroup,
+                "images/" .. option.file,
+                40,
+                40
+            )
+            optionIcon.x = display.contentCenterX + 120
+            optionIcon.y = optionY
+
+            optionBG:addEventListener("tap", function()
+                skins.setSelected(option.key)
+                dropdownLabel.text = "Skin: " .. skins.getSelectedKey()
+                skinPreview.fill = { type = "image", filename = "images/" .. skins.getSelected() }
+                hideOptions()
+            end)
+
+            optionIcon:addEventListener("tap", function()
+                skins.setSelected(option.key)
+                dropdownLabel.text = "Skin: " .. skins.getSelectedKey()
+                skinPreview.fill = { type = "image", filename = "images/" .. skins.getSelected() }
+                hideOptions()
+            end)
+
+            optionText:addEventListener("tap", function()
+                skins.setSelected(option.key)
+                dropdownLabel.text = "Skin: " .. skins.getSelectedKey()
+                skinPreview.fill = { type = "image", filename = "images/" .. skins.getSelected() }
+                hideOptions()
+            end)
+        end
+
+        optionsGroup.isVisible = true
+    end
+
+    dropdownBox:addEventListener("tap", function()
+        if optionsGroup.isVisible then
+            hideOptions()
+        else
+            showOptions()
+        end
+        return true
+    end)
+
+    -- Timer label, moved downward to keep room for skin preview
+    local timerY = 350
+
+    local timerLabel = display.newText(sceneGroup,
         "SELECT TIMER",
         display.contentCenterX,
-        200,
+        timerY,
         native.systemFontBold,
-        40)
+        34)
+    timerLabel:setFillColor(0.4, 1, 0.6)
+
+    -- Back button to return to main menu
+    local backBtn = display.newImageRect(sceneGroup, "images/backbtn.png", 120, 120)
+    backBtn.x = 80
+    backBtn.y = 80
+    backBtn:addEventListener("tap", function()
+        composer.gotoScene("scene.menu", {
+            effect = "fade",
+            time = 300
+        })
+        return true
+    end)
 
     for i = 1, 5 do
 
         local btn = display.newRoundedRect(
             sceneGroup,
             display.contentCenterX,
-            250 + (i * 80),
-            300,
+            timerY + 50 + (i - 1) * 75,
+            320,
             60,
-            15
+            18
         )
 
         btn:setFillColor(0.4, 0.7, 1)

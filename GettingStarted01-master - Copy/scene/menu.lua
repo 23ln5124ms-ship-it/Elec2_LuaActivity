@@ -86,16 +86,14 @@ end)
     playbtn:addEventListener("tap", onPlayTap)
 
     -------------------------------------------------
-    -- QUIT BUTTON
+    -- QUIT BUTTON (exit the game)
     -------------------------------------------------
-    local function onQuitTouch(event)
-        if event.phase == "ended" then
-            native.requestExit()
-        end
+    local function onQuitTap()
+        native.requestExit()
         return true
     end
 
-    quitbtn:addEventListener("touch", onQuitTouch)
+    quitbtn:addEventListener("tap", onQuitTap)
 
     local function toggleMute()
 
